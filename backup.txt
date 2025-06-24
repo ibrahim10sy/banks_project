@@ -1,0 +1,176 @@
+import requests
+import pandas as pd
+from bs4 import BeautifulSoup
+from datetime import datetime
+import sqlite3
+
+import numpy as np
+from datetime import datetime
+
+log_file = "code_log.txt"
+csv_path = 'Largest_banks_data.csv'
+db_name = 'Banks.sql'
+output_path = "banks_data.csv"
+table_name = 'Largest_banks'
+rates_path = ''
+url = 'https://en.wikipedia.org/wiki/List_of_largest_banks'
+table_attributs = ['Name','MC_USD_Billion']
+table_target = ['Name','MC_USD_Billion','MC_GBP_Billion','MC_EUR_Billion','MC_INR_Billion']
+conn = sqlite3.connect(db_name)
+df = pd.DataFrame(columns=table_attributs)
+
+# log 
+def log_progress(message):
+    timestamp_format = '%Y-%h-%d-%H:%M:%S'
+    now = datetime.now()
+    timestamp = now.strftime(timestamp_format)
+    with open(log_file,"a") as f:
+        f.write(message +','+ timestamp + '\n')
+
+def extract(url, table_attributs):
+    df = pd.DataFrame(columns=table_attributs)
+    page = requests.get(url).text
+    data = BeautifulSoup(page, 'html.parser')
+    tables = data.find_all('tbody')
+    rows = tables[2].find_all('tr')
+
+    for row in rows:
+        col = row.find_all('td')
+        if len(col) != 0:
+            data_dict = {
+                'Name': col[0].get_text(strip=True),
+                'MC_USD_Billion': col[2].contents[0]
+            }
+            df1 = pd.DataFrame([data_dict])  # plus clair
+            df = pd.concat([df, df1], ignore_index=True)
+
+    return df
+
+# def extract(url, table_attributs):
+#     df = pd.DataFrame(columns=table_attributs)
+#     page = requests.get(url).text
+#     soup = BeautifulSoup(page, 'html.parser')
+#     # Trouver la bonne table en regardant les balises <table>
+#     tables = soup.find_all('table')
+
+#     # Supposons que la bonne table est la première qui contient les en-têtes attendus
+#     for table in tables:
+#         headers = [th.get_text(strip=True) for th in table.find_all('th')]
+#         if "Market cap" in ' '.join(headers):
+#             rows = table.find_all('tr')
+#             for row in rows[1:]:  # ignorer l'en-tête
+#                 cols = row.find_all('td')
+#                 if len(cols) >= 3:
+#                     name = cols[0].get_text(strip=True)
+#                     mc_usd = cols[2].get_text(strip=True)  # GlobalData column
+
+#                     # Nettoyage de la valeur (ex: 599.931 -> float ou string)
+#                     mc_usd = mc_usd.replace("\n", "").strip()
+
+#                     if mc_usd == '':
+#                         mc_usd = None
+
+#                     data_dict = {
+#                         'Name': name,
+#                         'MC_USD_Billion': mc_usd
+#                     }
+#                     df = pd.concat([df, pd.DataFrame([data_dict])], ignore_index=True)
+#             break  # dès qu'on a trouvé la bonne table
+
+#     return df
+
+
+# Tâche 3 : transformation
+def transform(data, csv_path):
+    # taux de change
+    exchange_rate = {
+        'GBP': 0.8,
+        'EUR': 0.93,
+        'INR': 82.95
+    }
+
+    # Nettoyage et conversion des valeurs
+    data['MC_USD_Billion'] = pd.to_numeric(data['MC_USD_Billion'], errors='coerce')
+
+    # Ajout des colonnes converties avec arrondi à 2 décimales
+    data['MC_GBP_Billion'] = [round(x * exchange_rate['GBP'], 2) if pd.notna(x) else np.nan for x in data['MC_USD_Billion']]
+    data['MC_EUR_Billion'] = [round(x * exchange_rate['EUR'], 2) if pd.notna(x) else np.nan for x in data['MC_USD_Billion']]
+    data['MC_INR_Billion'] = [round(x * exchange_rate['INR'], 2) if pd.notna(x) else np.nan for x in data['MC_USD_Billion']]
+
+    # Enregistrement dans un fichier CSV
+    data.to_csv(csv_path, index=False)
+    return data
+# def transform(data, csv_path):
+#     exchange_rate_gbp = 0.8 
+#     exchange_rate_eur = 0.93 
+#     exchange_rate_inr = 82.95 
+
+#     data['MC_USD_Billion'] = pd.to_numeric(data['MC_USD_Billion'], errors='coerce')
+#     data['MC_GBP_Billion'] = (data['MC_USD_Billion'] * exchange_rate_gbp,0).round(2)
+#     data['MC_EUR_Billion'] = (data['MC_USD_Billion'] * exchange_rate_eur,0).round(2)
+#     data['MC_INR_Billion'] = (data['MC_USD_Billion'] * exchange_rate_inr,0).round(2)
+
+#     data.to_csv(csv_path, index=False)
+#     return data
+
+
+#  export CSV
+def load_to_csv(df, output_path):
+    df.to_csv(output_path, index=False)
+    return df
+
+# chargement en base de données
+def load_to_db(df, conn, table_name):
+
+    df.to_sql(table_name, conn, if_exists='replace', index=False)
+
+# requêtes SQL
+def run_query(query_statement, sql_connection):
+    print(query_statement)
+    query_output = pd.read_sql(query_statement, sql_connection)
+    print(query_output)
+
+# Journaliser l'initialisation du processus ETL
+log_progress("ETL Job Started")
+
+# Journaliser le début de la phase d'extraction
+log_progress("Extract phase Started")
+extracted_data = extract(url, table_attributs)
+print("Données extrait")
+print(extracted_data)
+# Journaliser la fin de la phase d'extraction
+log_progress("Extract phase Ended")
+
+# Journaliser le début de la phase de transformation
+log_progress("Transform phase Started")
+transformed_data = transform(extracted_data,csv_path)
+print("Données transformées")
+print(transformed_data)
+
+# Journaliser la fin de la phase de transformation
+log_progress("Transform phase Ended")
+
+# Journaliser le début de la phase de chargement
+log_progress("Load phase Started")
+load_to_csv(transformed_data, output_path)
+
+# Journaliser la fin de la phase de chargement
+log_progress("Load phase Ended")
+# Journaliser le début de la phase de chargement
+log_progress("Load phase Started")
+load_to_db(transformed_data, conn, table_name)
+
+# Journaliser la fin du processus ETL
+log_progress("Load query")
+log_progress("log select")
+query_statement = f"SELECT * FROM {table_name}"
+run_query(query_statement, conn)
+log_progress("log select")
+query_statement = f"SELECT AVG(MC_GBP_Billion) FROM {table_name}"
+run_query(query_statement, conn)
+log_progress("log select")
+query_statement = f"SELECT Name from {table_name} LIMIT 5"
+run_query(query_statement, conn)
+# conn.close()
+# Journaliser la fin du processus ETL
+log_progress("ETL Job Ended")

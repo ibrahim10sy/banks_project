@@ -1,0 +1,22 @@
+ETL Job Started,2025-06-24 10:49:36
+Extract phase Started,2025-06-24 10:49:36
+Extract phase Ended,2025-06-24 10:49:40
+Transform phase Started,2025-06-24 10:49:40
+Transform phase Ended,2025-06-24 10:49:40
+Load phase Started,2025-06-24 10:49:40
+Load phase Ended,2025-06-24 10:49:40
+MySQL DB Load Started,2025-06-24 10:49:40
+ETL Job Started,2025-06-24 10:52:38
+Extract phase Started,2025-06-24 10:52:38
+ETL Job Started,2025-06-24 10:55:36
+Extract phase Started,2025-06-24 10:55:36
+Extract phase Ended,2025-06-24 10:55:39
+Transform phase Started,2025-06-24 10:55:39
+Transform phase Ended,2025-06-24 10:55:39
+Load phase Started,2025-06-24 10:55:39
+Load phase Ended,2025-06-24 10:55:39
+MySQL DB Load Started,2025-06-24 10:55:39
+MySQL DB Load Ended,2025-06-24 10:55:39
+SQL Query Started,2025-06-24 10:55:39
+SQL Query Ended,2025-06-24 10:55:39
+ETL Job Ended,2025-06-24 10:55:39
